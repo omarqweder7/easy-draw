@@ -36,7 +36,10 @@ class FillOp extends DrawOp {
 class ClearOp extends DrawOp {}
 
 class CanvasLayer {
-  CanvasLayer({required this.id, required this.name, this.kind = LayerKind.paint, this.opacity = 1, this.visible = true, this.base, this.exportable = true});
+  CanvasLayer({required this.id, required this.name, this.kind = LayerKind.paint, this.opacity = 1, this.visible = true, this.base, this.exportable = true})
+      // The cache must be its own handle: it is disposed on every redraw,
+      // which must never dispose [base].
+      : cache = base?.clone();
 
   final String id;
   String name;

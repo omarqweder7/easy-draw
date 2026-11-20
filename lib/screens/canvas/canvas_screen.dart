@@ -135,13 +135,12 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
           final coloring = widget.reference!.coloring;
           if (coloring) {
             _layers.add(_newPaintLayer(colorsLabel));
-            _layers.add(CanvasLayer(id: 'outline', name: outlineLabel, kind: LayerKind.outline, base: scaled)..cache = scaled);
+            _layers.add(CanvasLayer(id: 'outline', name: outlineLabel, kind: LayerKind.outline, base: scaled));
             _active = 0;
             _tool = Tool.fill;
             _color = const Color(0xFFFF7EB3);
           } else {
-            _layers.add(CanvasLayer(id: 'reference', name: referenceLabel, kind: LayerKind.reference, opacity: 0.35, base: scaled, exportable: false)
-              ..cache = scaled);
+            _layers.add(CanvasLayer(id: 'reference', name: referenceLabel, kind: LayerKind.reference, opacity: 0.35, base: scaled, exportable: false));
             _layers.add(_newPaintLayer(layer1Label));
             _active = 1;
           }
@@ -190,7 +189,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
         visible: lj['visible'] as bool,
         exportable: (lj['exportable'] as bool?) ?? true,
         base: base,
-      )..cache = base);
+      ));
       _layerSeq++;
     }
     final a = (j['active'] as int?) ?? 0;
