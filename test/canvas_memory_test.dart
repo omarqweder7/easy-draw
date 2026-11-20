@@ -31,4 +31,17 @@ void main() {
     await rebuildLayer(layer, doc); // undo it: must still draw the base
     expect(base.debugDisposed, isFalse, reason: 'the layer base was disposed while still in use');
   });
+
+  test('disposeAll releases base, cache and fill images; strokes hold no images', () async {
+    final base = await solid(const Color(0xFF00FF00));
+    final fill = FillOp(await solid(const Color(0x80FF0000)));
+    final layer = CanvasLayer(id: 'l', name: 'l', base: base)..ops.addAll([line(), fill]);
+    expect(opImageBytes(layer.ops), 64 * 48 * 4);
+    final cache = layer.cache!;
+    layer.disposeAll();
+    expect(base.debugDisposed, isTrue);
+    expect(cache.debugDisposed, isTrue);
+    expect(fill.image.debugDisposed, isTrue);
+    expect(layer.ops, isEmpty);
+  });
 }

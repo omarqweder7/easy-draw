@@ -97,9 +97,9 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.removeObserver(this);
     _saveTimer?.cancel();
     _liveBrush.reset();
+    _discardRedo();
     for (final l in _layers) {
-      l.cache?.dispose();
-      if (!identical(l.base, l.cache)) l.base?.dispose();
+      l.disposeAll();
     }
     _repaint.dispose();
     super.dispose();
@@ -230,7 +230,13 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
           await writeAtomic(file, await encodePng(blank));
           blank.dispose();
         } else {
-          await writeAtomic(file, await encodePng(img));
+          // Encode our own handle: a stroke committed meanwhile disposes the cache.
+          final own = img.clone();
+          try {
+            await writeAtomic(file, await encodePng(own));
+          } finally {
+            own.dispose();
+          }
         }
         l.dirty = false;
       }
@@ -296,28 +302,68 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   Future<void> _commit(CanvasLayer layer, DrawOp op) async {
     layer.ops.add(op);
     _undo.add(HistoryEntry(layer, op));
-    _redo.clear();
+    _discardRedo();
     await appendToLayer(layer, op, _doc);
     await _trim(layer);
+    await _enforceFillBudget();
     _repaint.ping();
     _changed(layer);
   }
 
-  /// Keeps memory bounded: very old operations are flattened (not undoable).
+  /// Keeps undo replay bounded: very old operations are flattened (not undoable).
   Future<void> _trim(CanvasLayer l) async {
     if (l.ops.length <= 50) return;
-    final old = l.ops.sublist(0, 25);
-    final rec = ui.PictureRecorder();
-    final c = Canvas(rec, Offset.zero & _doc);
-    if (l.base != null) c.drawImage(l.base!, Offset.zero, Paint());
-    for (final op in old) {
-      paintOp(c, op, _doc);
+    await _flattenPrefix(l, 25);
+  }
+
+  /// Fill images (one per fill, up to a full document each) dominate memory.
+  /// Past this budget the oldest fills are flattened into their layer.
+  static const _fillImageBudget = 64 << 20; // 64 MB
+
+  Future<void> _enforceFillBudget() async {
+    while (_layers.fold<int>(0, (a, l) => a + opImageBytes(l.ops)) > _fillImageBudget) {
+      final oldest = _undo.where((e) => e.op is FillOp).firstOrNull;
+      if (oldest == null) return;
+      final idx = oldest.layer.ops.indexOf(oldest.op);
+      if (idx < 0) return;
+      await _flattenPrefix(oldest.layer, idx + 1);
     }
-    final nb = await rec.endRecording().toImage(_doc.width.round(), _doc.height.round());
-    if (!identical(l.base, l.cache)) l.base?.dispose();
+  }
+
+  /// Bakes the first [count] ops of [l] into its base; they can no longer be
+  /// undone and their images are released.
+  Future<void> _flattenPrefix(CanvasLayer l, int count) async {
+    final old = l.ops.sublist(0, count);
+    final ui.Image nb;
+    if (count == l.ops.length && l.cache != null) {
+      // Everything is flattened: the cache already shows exactly base + ops.
+      // clone() shares the pixels, so this costs no extra memory.
+      nb = l.cache!.clone();
+    } else {
+      final rec = ui.PictureRecorder();
+      final c = Canvas(rec, Offset.zero & _doc);
+      if (l.base != null) c.drawImage(l.base!, Offset.zero, Paint());
+      for (final op in old) {
+        paintOp(c, op, _doc);
+      }
+      nb = await rec.endRecording().toImage(_doc.width.round(), _doc.height.round());
+    }
+    l.base?.dispose();
     l.base = nb;
-    l.ops.removeRange(0, 25);
+    l.ops.removeRange(0, count);
     _undo.removeWhere((e) => old.contains(e.op));
+    for (final op in old) {
+      disposeOp(op);
+    }
+  }
+
+  /// Redo entries are dropped when a new op is committed; their ops are no
+  /// longer in any layer, so their images can be released.
+  void _discardRedo() {
+    for (final e in _redo) {
+      disposeOp(e.op);
+    }
+    _redo.clear();
   }
 
   Future<void> _undoOp() async {
@@ -915,10 +961,14 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
                         upd(() {
                           _layers.removeAt(i);
                           _undo.removeWhere((e) => e.layer == l);
+                          for (final e in _redo.where((e) => e.layer == l)) {
+                            disposeOp(e.op);
+                          }
                           _redo.removeWhere((e) => e.layer == l);
                           final idx = _layers.lastIndexWhere((x) => x.editable);
                           _active = idx < 0 ? 0 : idx;
                         });
+                        l.disposeAll();
                         _removeLayerFile(l);
                       }
                   }

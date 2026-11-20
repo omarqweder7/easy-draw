@@ -59,6 +59,34 @@ class CanvasLayer {
   bool get editable => kind == LayerKind.paint;
 }
 
+/// Releases GPU memory held by an op that has been permanently discarded.
+void disposeOp(DrawOp op) {
+  if (op is FillOp) op.image.dispose();
+}
+
+/// Bytes held by fill images in [ops] (strokes hold no images).
+int opImageBytes(Iterable<DrawOp> ops) {
+  var sum = 0;
+  for (final op in ops) {
+    if (op is FillOp) sum += op.image.width * op.image.height * 4;
+  }
+  return sum;
+}
+
+extension CanvasLayerMemory on CanvasLayer {
+  /// Disposes everything this layer owns. Only call once the layer is gone.
+  void disposeAll() {
+    base?.dispose();
+    cache?.dispose();
+    base = null;
+    cache = null;
+    for (final op in ops) {
+      disposeOp(op);
+    }
+    ops.clear();
+  }
+}
+
 class HistoryEntry {
   HistoryEntry(this.layer, this.op);
   final CanvasLayer layer;
