@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <g fill="none" stroke="#1A1A1A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M128 140 A72 60 0 1 0 272 140 A72 60 0 1 0 128 140 Z"/>
+    <path d="M140 108 L150 46 L186 88"/>
+    <path d="M260 108 L250 46 L214 88"/>
+    <path d="M152 92 L157 64 L176 86"/>
+    <path d="M248 92 L243 64 L224 86"/>
+    <path d="M167 136 A8 12 0 1 0 183 136 A8 12 0 1 0 167 136 Z" fill="#1A1A1A" stroke="none"/>
+    <path d="M217 136 A8 12 0 1 0 233 136 A8 12 0 1 0 217 136 Z" fill="#1A1A1A" stroke="none"/>
+    <path d="M193 157 L207 157 L200 166 Z" fill="#1A1A1A" stroke="none"/>
+    <path d="M200 166 Q200 178 188 178"/>
+    <path d="M200 166 Q200 178 212 178"/>
+    <path d="M160 158 L116 150"/>
+    <path d="M240 158 L284 150"/>
+    <path d="M160 168 L114 172"/>
+    <path d="M240 168 L286 172"/>
+    <path d="M150 188 C110 232 104 300 124 345 L276 345 C296 300 290 232 250 188"/>
+    <path d="M176 262 L173 345"/>
+    <path d="M224 262 L227 345"/>
+    <path d="M150 345 Q162 330 174 345"/>
+    <path d="M226 345 Q238 330 250 345"/>
+    <path d="M276 330 C330 330 346 282 322 252 C312 240 300 250 308 260"/>
+  </g>
+</svg>

@@ -1,0 +1,701 @@
+{
+ "version": 1,
+ "references": [
+  {
+   "id": "cat",
+   "title": {
+    "en": "Sitting cat",
+    "ar": "قطة جالسة",
+    "he": "חתול יושב"
+   },
+   "category": "animals",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/animals/cat.svg",
+   "featured": true,
+   "tags": [
+    "cat",
+    "kitten",
+    "pet"
+   ]
+  },
+  {
+   "id": "dog",
+   "title": {
+    "en": "Happy puppy",
+    "ar": "جرو سعيد",
+    "he": "גור שמח"
+   },
+   "category": "animals",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/animals/dog.svg",
+   "featured": false,
+   "tags": [
+    "dog",
+    "puppy",
+    "pet"
+   ]
+  },
+  {
+   "id": "fish",
+   "title": {
+    "en": "Little fish",
+    "ar": "سمكة صغيرة",
+    "he": "דג קטן"
+   },
+   "category": "animals",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/animals/fish.svg",
+   "featured": false,
+   "tags": [
+    "fish",
+    "sea"
+   ]
+  },
+  {
+   "id": "owl",
+   "title": {
+    "en": "Owl on a branch",
+    "ar": "بومة على غصن",
+    "he": "ינשוף על ענף"
+   },
+   "category": "animals",
+   "difficulty": "medium",
+   "style": "line",
+   "asset": "assets/library/animals/owl.svg",
+   "featured": false,
+   "tags": [
+    "owl",
+    "bird"
+   ]
+  },
+  {
+   "id": "butterfly",
+   "title": {
+    "en": "Butterfly",
+    "ar": "فراشة",
+    "he": "פרפר"
+   },
+   "category": "animals",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/animals/butterfly.svg",
+   "featured": false,
+   "tags": [
+    "butterfly",
+    "insect"
+   ]
+  },
+  {
+   "id": "car",
+   "title": {
+    "en": "Family car",
+    "ar": "سيارة عائلية",
+    "he": "מכונית משפחתית"
+   },
+   "category": "vehicles",
+   "difficulty": "medium",
+   "style": "line",
+   "asset": "assets/library/vehicles/car.svg",
+   "featured": true,
+   "tags": [
+    "car",
+    "auto"
+   ]
+  },
+  {
+   "id": "bicycle",
+   "title": {
+    "en": "Bicycle",
+    "ar": "دراجة هوائية",
+    "he": "אופניים"
+   },
+   "category": "vehicles",
+   "difficulty": "medium",
+   "style": "line",
+   "asset": "assets/library/vehicles/bicycle.svg",
+   "featured": false,
+   "tags": [
+    "bike",
+    "bicycle"
+   ]
+  },
+  {
+   "id": "sailboat",
+   "title": {
+    "en": "Sailboat",
+    "ar": "قارب شراعي",
+    "he": "סירת מפרש"
+   },
+   "category": "vehicles",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/vehicles/sailboat.svg",
+   "featured": false,
+   "tags": [
+    "boat",
+    "sea"
+   ]
+  },
+  {
+   "id": "rocket",
+   "title": {
+    "en": "Rocket",
+    "ar": "صاروخ",
+    "he": "טיל"
+   },
+   "category": "vehicles",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/vehicles/rocket.svg",
+   "featured": false,
+   "tags": [
+    "rocket",
+    "space"
+   ]
+  },
+  {
+   "id": "mountains",
+   "title": {
+    "en": "Mountain view",
+    "ar": "منظر جبلي",
+    "he": "נוף הרים"
+   },
+   "category": "nature",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/nature/mountains.svg",
+   "featured": true,
+   "tags": [
+    "mountain",
+    "landscape"
+   ]
+  },
+  {
+   "id": "tree",
+   "title": {
+    "en": "Apple tree",
+    "ar": "شجرة تفاح",
+    "he": "עץ תפוח"
+   },
+   "category": "nature",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/nature/tree.svg",
+   "featured": false,
+   "tags": [
+    "tree"
+   ]
+  },
+  {
+   "id": "island",
+   "title": {
+    "en": "Palm island",
+    "ar": "جزيرة النخيل",
+    "he": "אי דקלים"
+   },
+   "category": "nature",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/nature/island.svg",
+   "featured": false,
+   "tags": [
+    "beach",
+    "palm",
+    "sea"
+   ]
+  },
+  {
+   "id": "cactus",
+   "title": {
+    "en": "Desert cactus",
+    "ar": "صبّار الصحراء",
+    "he": "קקטוס במדבר"
+   },
+   "category": "nature",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/nature/cactus.svg",
+   "featured": false,
+   "tags": [
+    "cactus",
+    "desert"
+   ]
+  },
+  {
+   "id": "tulip",
+   "title": {
+    "en": "Tulip",
+    "ar": "زهرة التوليب",
+    "he": "צבעוני"
+   },
+   "category": "flowers",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/flowers/tulip.svg",
+   "featured": false,
+   "tags": [
+    "flower",
+    "tulip"
+   ]
+  },
+  {
+   "id": "rose",
+   "title": {
+    "en": "Rose",
+    "ar": "وردة",
+    "he": "ורד"
+   },
+   "category": "flowers",
+   "difficulty": "medium",
+   "style": "line",
+   "asset": "assets/library/flowers/rose.svg",
+   "featured": true,
+   "tags": [
+    "flower",
+    "rose"
+   ]
+  },
+  {
+   "id": "sunflower",
+   "title": {
+    "en": "Sunflower",
+    "ar": "زهرة عباد الشمس",
+    "he": "חמנייה"
+   },
+   "category": "flowers",
+   "difficulty": "medium",
+   "style": "detailed",
+   "asset": "assets/library/flowers/sunflower.svg",
+   "featured": false,
+   "tags": [
+    "flower",
+    "sunflower"
+   ]
+  },
+  {
+   "id": "plant",
+   "title": {
+    "en": "Potted plant",
+    "ar": "نبتة في أصيص",
+    "he": "עציץ"
+   },
+   "category": "flowers",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/flowers/plant.svg",
+   "featured": false,
+   "tags": [
+    "plant",
+    "leaf"
+   ]
+  },
+  {
+   "id": "cupcake",
+   "title": {
+    "en": "Cupcake",
+    "ar": "كب كيك",
+    "he": "קאפקייק"
+   },
+   "category": "food",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/food/cupcake.svg",
+   "featured": true,
+   "tags": [
+    "cake",
+    "sweet"
+   ]
+  },
+  {
+   "id": "icecream",
+   "title": {
+    "en": "Ice cream cone",
+    "ar": "قرن آيس كريم",
+    "he": "גביע גלידה"
+   },
+   "category": "food",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/food/icecream.svg",
+   "featured": false,
+   "tags": [
+    "ice cream",
+    "sweet"
+   ]
+  },
+  {
+   "id": "pizza",
+   "title": {
+    "en": "Pizza slice",
+    "ar": "شريحة بيتزا",
+    "he": "משולש פיצה"
+   },
+   "category": "food",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/food/pizza.svg",
+   "featured": false,
+   "tags": [
+    "pizza"
+   ]
+  },
+  {
+   "id": "apple",
+   "title": {
+    "en": "Apple",
+    "ar": "تفاحة",
+    "he": "תפוח"
+   },
+   "category": "food",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/food/apple.svg",
+   "featured": false,
+   "tags": [
+    "fruit",
+    "apple"
+   ]
+  },
+  {
+   "id": "mika",
+   "title": {
+    "en": "Mika (original character)",
+    "ar": "ميكا (شخصية أصلية)",
+    "he": "מיקה (דמות מקורית)"
+   },
+   "category": "anime",
+   "difficulty": "medium",
+   "style": "cartoon",
+   "asset": "assets/library/anime/mika.svg",
+   "featured": true,
+   "tags": [
+    "anime",
+    "girl",
+    "manga"
+   ]
+  },
+  {
+   "id": "kenta",
+   "title": {
+    "en": "Kenta, chibi style",
+    "ar": "كينتا بأسلوب تشيبي",
+    "he": "קנטה בסגנון צ׳יבי"
+   },
+   "category": "anime",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/anime/kenta.svg",
+   "featured": false,
+   "tags": [
+    "anime",
+    "chibi",
+    "boy"
+   ]
+  },
+  {
+   "id": "neko",
+   "title": {
+    "en": "Neko-chan (original character)",
+    "ar": "نيكو-تشان (شخصية أصلية)",
+    "he": "נקו-צ׳אן (דמות מקורית)"
+   },
+   "category": "anime",
+   "difficulty": "hard",
+   "style": "cartoon",
+   "asset": "assets/library/anime/neko.svg",
+   "featured": false,
+   "tags": [
+    "anime",
+    "cat ears"
+   ]
+  },
+  {
+   "id": "face_guide",
+   "title": {
+    "en": "Face proportions guide",
+    "ar": "دليل نِسَب الوجه",
+    "he": "מדריך פרופורציות פנים"
+   },
+   "category": "people",
+   "difficulty": "medium",
+   "style": "detailed",
+   "asset": "assets/library/people/face_guide.svg",
+   "featured": false,
+   "tags": [
+    "face",
+    "portrait",
+    "guide"
+   ]
+  },
+  {
+   "id": "portrait",
+   "title": {
+    "en": "Calm portrait",
+    "ar": "بورتريه هادئ",
+    "he": "דיוקן רגוע"
+   },
+   "category": "people",
+   "difficulty": "medium",
+   "style": "line",
+   "asset": "assets/library/people/portrait.svg",
+   "featured": false,
+   "tags": [
+    "woman",
+    "portrait"
+   ]
+  },
+  {
+   "id": "profile",
+   "title": {
+    "en": "Side profile",
+    "ar": "وجه جانبي",
+    "he": "פרופיל צד"
+   },
+   "category": "people",
+   "difficulty": "hard",
+   "style": "line",
+   "asset": "assets/library/people/profile.svg",
+   "featured": false,
+   "tags": [
+    "profile",
+    "face"
+   ]
+  },
+  {
+   "id": "house",
+   "title": {
+    "en": "Cozy house",
+    "ar": "بيت دافئ",
+    "he": "בית חמים"
+   },
+   "category": "objects",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/objects/house.svg",
+   "featured": true,
+   "tags": [
+    "house",
+    "home"
+   ]
+  },
+  {
+   "id": "lighthouse",
+   "title": {
+    "en": "Lighthouse",
+    "ar": "منارة",
+    "he": "מגדלור"
+   },
+   "category": "objects",
+   "difficulty": "medium",
+   "style": "line",
+   "asset": "assets/library/objects/lighthouse.svg",
+   "featured": false,
+   "tags": [
+    "lighthouse",
+    "sea"
+   ]
+  },
+  {
+   "id": "teapot",
+   "title": {
+    "en": "Teapot",
+    "ar": "إبريق شاي",
+    "he": "קומקום תה"
+   },
+   "category": "objects",
+   "difficulty": "easy",
+   "style": "line",
+   "asset": "assets/library/objects/teapot.svg",
+   "featured": false,
+   "tags": [
+    "tea",
+    "teapot"
+   ]
+  },
+  {
+   "id": "castle",
+   "title": {
+    "en": "Castle",
+    "ar": "قلعة",
+    "he": "טירה"
+   },
+   "category": "objects",
+   "difficulty": "hard",
+   "style": "line",
+   "asset": "assets/library/objects/castle.svg",
+   "featured": false,
+   "tags": [
+    "castle",
+    "building"
+   ]
+  },
+  {
+   "id": "heart",
+   "title": {
+    "en": "Heart",
+    "ar": "قلب",
+    "he": "לב"
+   },
+   "category": "simple",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/simple/heart.svg",
+   "featured": false,
+   "tags": [
+    "heart",
+    "love"
+   ]
+  },
+  {
+   "id": "star",
+   "title": {
+    "en": "Smiling star",
+    "ar": "نجمة مبتسمة",
+    "he": "כוכב מחייך"
+   },
+   "category": "simple",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/simple/star.svg",
+   "featured": false,
+   "tags": [
+    "star"
+   ]
+  },
+  {
+   "id": "sun",
+   "title": {
+    "en": "Happy sun",
+    "ar": "شمس سعيدة",
+    "he": "שמש שמחה"
+   },
+   "category": "simple",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/simple/sun.svg",
+   "featured": false,
+   "tags": [
+    "sun"
+   ]
+  },
+  {
+   "id": "cloud",
+   "title": {
+    "en": "Rain cloud",
+    "ar": "غيمة ممطرة",
+    "he": "ענן גשם"
+   },
+   "category": "simple",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/simple/cloud.svg",
+   "featured": false,
+   "tags": [
+    "cloud",
+    "rain"
+   ]
+  },
+  {
+   "id": "balloon",
+   "title": {
+    "en": "Balloon",
+    "ar": "بالون",
+    "he": "בלון"
+   },
+   "category": "simple",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/simple/balloon.svg",
+   "featured": false,
+   "tags": [
+    "balloon"
+   ]
+  },
+  {
+   "id": "mandala",
+   "title": {
+    "en": "Flower mandala",
+    "ar": "ماندالا زهرية",
+    "he": "מנדלה פרחונית"
+   },
+   "category": "coloring",
+   "difficulty": "hard",
+   "style": "pattern",
+   "asset": "assets/library/coloring/mandala.svg",
+   "featured": true,
+   "tags": [
+    "mandala",
+    "pattern"
+   ]
+  },
+  {
+   "id": "butterfly_color",
+   "title": {
+    "en": "Butterfly to color",
+    "ar": "فراشة للتلوين",
+    "he": "פרפר לצביעה"
+   },
+   "category": "coloring",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/coloring/butterfly_color.svg",
+   "featured": false,
+   "tags": [
+    "butterfly"
+   ]
+  },
+  {
+   "id": "fish_color",
+   "title": {
+    "en": "Striped fish to color",
+    "ar": "سمكة مخططة للتلوين",
+    "he": "דג מפוספס לצביעה"
+   },
+   "category": "coloring",
+   "difficulty": "easy",
+   "style": "cartoon",
+   "asset": "assets/library/coloring/fish_color.svg",
+   "featured": false,
+   "tags": [
+    "fish"
+   ]
+  },
+  {
+   "id": "garden",
+   "title": {
+    "en": "Flower garden",
+    "ar": "حديقة زهور",
+    "he": "גן פרחים"
+   },
+   "category": "coloring",
+   "difficulty": "medium",
+   "style": "cartoon",
+   "asset": "assets/library/coloring/garden.svg",
+   "featured": false,
+   "tags": [
+    "flowers",
+    "garden"
+   ]
+  },
+  {
+   "id": "hexagons",
+   "title": {
+    "en": "Honeycomb pattern",
+    "ar": "نقش خلية النحل",
+    "he": "דוגמת כוורת"
+   },
+   "category": "coloring",
+   "difficulty": "medium",
+   "style": "pattern",
+   "asset": "assets/library/coloring/hexagons.svg",
+   "featured": false,
+   "tags": [
+    "pattern",
+    "geometric"
+   ]
+  }
+ ]
+}

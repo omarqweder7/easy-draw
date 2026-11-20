@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <g fill="none" stroke="#1A1A1A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M51 265 A64 64 0 1 0 179 265 A64 64 0 1 0 51 265 Z"/>
+    <path d="M226 265 A64 64 0 1 0 354 265 A64 64 0 1 0 226 265 Z"/>
+    <path d="M109 265 A6 6 0 1 0 121 265 A6 6 0 1 0 109 265 Z"/>
+    <path d="M284 265 A6 6 0 1 0 296 265 A6 6 0 1 0 284 265 Z"/>
+    <path d="M115 265 L180 265"/>
+    <path d="M180 265 L146 162"/>
+    <path d="M150 176 L255 176"/>
+    <path d="M180 265 L256 186"/>
+    <path d="M115 265 L152 180"/>
+    <path d="M255 176 L290 265"/>
+    <path d="M255 176 L249 146 L276 140"/>
+    <path d="M126 158 L166 158"/>
+    <path d="M168 265 A12 12 0 1 0 192 265 A12 12 0 1 0 168 265 Z"/>
+    <path d="M180 265 L194 288"/>
+    <path d="M186 290 L204 286"/>
+  </g>
+</svg>
