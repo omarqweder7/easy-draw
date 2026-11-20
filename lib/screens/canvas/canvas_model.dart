@@ -91,24 +91,88 @@ void paintStroke(Canvas canvas, StrokeOp s) {
       canvas.drawPath(smoothPath(s.points), paint);
     case Tool.brush:
       // Variable-width soft brush, composited as one layer so overlaps don't darken.
-      final b = s.bounds.inflate(s.size);
-      canvas.saveLayer(b, Paint()..color = Color.fromRGBO(0, 0, 0, s.opacity));
-      final paint = Paint()
-        ..color = color
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(0.5, s.size * 0.12));
+      canvas.saveLayer(_brushLayerBounds(s), _brushLayerPaint(s));
       if (s.points.length == 1) {
         canvas.drawCircle(s.points.first, s.size * s.widths.first / 2, Paint()..color = color);
       }
-      for (var i = 1; i < s.points.length; i++) {
-        paint.strokeWidth = s.size * (s.widths[i] + s.widths[i - 1]) / 2;
-        canvas.drawLine(s.points[i - 1], s.points[i], paint);
-      }
+      _brushSegments(canvas, s, 1, s.points.length);
       canvas.restore();
     case Tool.fill:
       break;
   }
+}
+
+Rect _brushLayerBounds(StrokeOp s) => s.bounds.inflate(s.size);
+
+Paint _brushLayerPaint(StrokeOp s) => Paint()..color = Color.fromRGBO(0, 0, 0, s.opacity);
+
+/// Draws brush segments [from, to): segment i joins points[i-1] and points[i].
+void _brushSegments(Canvas canvas, StrokeOp s, int from, int to) {
+  final paint = Paint()
+    ..color = s.color
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke
+    ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(0.5, s.size * 0.12));
+  for (var i = max(1, from); i < to; i++) {
+    paint.strokeWidth = s.size * (s.widths[i] + s.widths[i - 1]) / 2;
+    canvas.drawLine(s.points[i - 1], s.points[i], paint);
+  }
+}
+
+/// Rasterised prefix of the live brush stroke.
+///
+/// Redrawing every blurred segment each frame made a brush stroke cost
+/// O(n) per frame (O(n²) overall). Instead, finished segments are baked into
+/// [image] in batches and each frame draws that image plus the newest
+/// segments. Inside the stroke's own layer this is the same source-over
+/// sequence as drawing every segment, so at document resolution the preview
+/// matches [paintStroke] exactly; committing still uses [paintStroke].
+class LiveBrushCache {
+  ui.Image? image;
+  Offset origin = Offset.zero; // document position of image's top-left pixel
+  int baked = 0; // segments 1..baked are in [image]
+
+  /// How many new segments trigger a re-bake.
+  static const batch = 4;
+
+  void reset() {
+    image?.dispose();
+    image = null;
+    origin = Offset.zero;
+    baked = 0;
+  }
+}
+
+/// Bakes pending segments of a live brush stroke once a batch is ready.
+void bakeLiveBrush(StrokeOp s, LiveBrushCache c, Size doc) {
+  final segments = s.points.length - 1;
+  if (s.tool != Tool.brush || segments - c.baked < LiveBrushCache.batch) return;
+  final r = _brushLayerBounds(s).intersect(Offset.zero & doc);
+  if (r.isEmpty) return;
+  // Whole pixels so the cached image lands 1:1 on the layer's pixel grid.
+  final rect = Rect.fromLTRB(r.left.floorToDouble(), r.top.floorToDouble(), r.right.ceilToDouble(), r.bottom.ceilToDouble());
+  final rec = ui.PictureRecorder();
+  final canvas = Canvas(rec);
+  canvas.translate(-rect.left, -rect.top);
+  if (c.image != null) canvas.drawImage(c.image!, c.origin, Paint());
+  _brushSegments(canvas, s, c.baked + 1, segments + 1);
+  final img = rec.endRecording().toImageSync(rect.width.round(), rect.height.round());
+  c.image?.dispose();
+  c.image = img;
+  c.origin = rect.topLeft;
+  c.baked = segments;
+}
+
+/// Paints the live (in-progress) stroke, using [cache] for brush strokes.
+void paintLiveStroke(Canvas canvas, StrokeOp s, LiveBrushCache? cache) {
+  if (s.tool != Tool.brush || cache?.image == null) {
+    paintStroke(canvas, s);
+    return;
+  }
+  canvas.saveLayer(_brushLayerBounds(s), _brushLayerPaint(s));
+  canvas.drawImage(cache!.image!, cache.origin, Paint());
+  _brushSegments(canvas, s, cache.baked + 1, s.points.length);
+  canvas.restore();
 }
 
 /// Quadratic smoothing through the midpoints of consecutive samples.

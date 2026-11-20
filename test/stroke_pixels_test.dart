@@ -141,4 +141,31 @@ void main() {
           stroke(Tool.pencil, path(80, seed: 5), size: 4),
         ]));
   });
+
+  test('live brush preview (baked prefix + tail) equals a full render', () async {
+    Future<Uint8List> render(void Function(Canvas c) draw) async {
+      final rec = ui.PictureRecorder();
+      draw(Canvas(rec));
+      return pixels(await rec.endRecording().toImage(doc.width.round(), doc.height.round()));
+    }
+
+    final pts = path(260, seed: 2);
+    final live = StrokeOp(tool: Tool.brush, color: const Color(0xFF1E88E5), size: 14, opacity: 0.6);
+    final cache = LiveBrushCache();
+    var checked = 0;
+    for (var i = 0; i < pts.length; i++) {
+      live.add(pts[i], 0.45 + 0.8 * (0.5 + 0.5 * sin(i * 0.21)));
+      bakeLiveBrush(live, cache, doc);
+      // Compare at a few points mid-stroke, including just after a bake.
+      if (i == 30 || i == 97 || i == 145 || i == pts.length - 1) {
+        expect(cache.image, isNotNull);
+        final preview = await render((c) => paintLiveStroke(c, live, cache));
+        final full = await render((c) => paintStroke(c, live));
+        expect(_firstDiff(preview, full), isNull, reason: 'live preview differs at point $i');
+        checked++;
+      }
+    }
+    expect(checked, 4);
+    cache.reset();
+  });
 }

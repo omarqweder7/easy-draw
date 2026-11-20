@@ -52,6 +52,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   final List<HistoryEntry> _undo = [];
   final List<HistoryEntry> _redo = [];
   StrokeOp? _live;
+  final _liveBrush = LiveBrushCache(); // baked prefix of a live brush stroke
   final _repaint = _Repaint();
 
   double _zoom = 1;
@@ -95,6 +96,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _saveTimer?.cancel();
+    _liveBrush.reset();
     for (final l in _layers) {
       l.cache?.dispose();
       if (!identical(l.base, l.cache)) l.base?.dispose();
@@ -408,6 +410,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
           return;
         }
         // Sizes are on-screen pixels at "fit" zoom, so they feel the same on any document size.
+        _liveBrush.reset();
         _live = StrokeOp(tool: _tool, color: _color, size: _size / _fitZoom, opacity: _opacity)..add(_toDoc(e.localPosition), _pressure(e));
         _repaint.ping();
       }
@@ -422,6 +425,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
           _live = null;
           _commit(_activeLayer, s);
         }
+        _liveBrush.reset();
       }
       _drawPointer = null;
       _transforming = true;
@@ -467,6 +471,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
         w = prev * 0.6 + w * 0.4;
       }
       _live!.add(pt, w);
+      bakeLiveBrush(_live!, _liveBrush, _doc);
       _repaint.ping();
     }
   }
@@ -486,6 +491,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
     }
     final s = _live;
     _live = null;
+    _liveBrush.reset();
     if (s != null && e is PointerUpEvent) _commit(_activeLayer, s);
     _repaint.ping();
   }
@@ -579,6 +585,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
                   layers: _layers,
                   active: _layers.isEmpty ? null : _activeLayer,
                   live: () => _live,
+                  liveBrush: _liveBrush,
                   view: () => (_zoom, _pan),
                   doc: _doc,
                   repaint: _repaint,
@@ -1024,6 +1031,7 @@ class _CanvasPainter extends CustomPainter {
     required this.layers,
     required this.active,
     required this.live,
+    required this.liveBrush,
     required this.view,
     required this.doc,
     required Listenable repaint,
@@ -1033,6 +1041,7 @@ class _CanvasPainter extends CustomPainter {
   final List<CanvasLayer> layers;
   final CanvasLayer? active;
   final StrokeOp? Function() live;
+  final LiveBrushCache liveBrush;
   final (double, Offset) Function() view;
   final Size doc;
   final bool dark;
@@ -1057,7 +1066,7 @@ class _CanvasPainter extends CustomPainter {
       if (identical(l, active) && s != null) {
         canvas.saveLayer(docRect, paint);
         if (img != null) canvas.drawImage(img, Offset.zero, Paint());
-        paintStroke(canvas, s);
+        paintLiveStroke(canvas, s, liveBrush);
         canvas.restore();
       } else if (img != null) {
         canvas.drawImage(img, Offset.zero, paint);
