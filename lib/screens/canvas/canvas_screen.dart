@@ -414,9 +414,9 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       final w = boundary.width, h = boundary.height;
       boundary.dispose();
       final argb = _color.withValues(alpha: _opacity).toARGB32();
-      final mask = await floodFillMask(data!.buffer.asUint8List(), w, h, doc.dx.floor().clamp(0, w - 1), doc.dy.floor().clamp(0, h - 1), argb);
-      final img = await imageFromRgba(mask, w, h);
-      await _commit(layer, FillOp(img));
+      final region = await floodFillRegion(data!.buffer.asUint8List(), w, h, doc.dx.floor().clamp(0, w - 1), doc.dy.floor().clamp(0, h - 1), argb);
+      final img = await imageFromRgba(region.rgba, region.width, region.height);
+      await _commit(layer, FillOp(img, origin: Offset(region.left.toDouble(), region.top.toDouble())));
     } catch (_) {
       if (mounted) showSnack(context.tr('canvas.fillFailed', 'Fill didn’t work here. Try another spot.'), error: true);
     } finally {

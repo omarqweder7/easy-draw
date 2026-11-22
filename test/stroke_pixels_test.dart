@@ -126,9 +126,12 @@ void main() {
     // The fill tool reads straight (non-premultiplied) RGBA, like _fillAt.
     final data = (await boundary.toByteData(format: ui.ImageByteFormat.rawStraightRgba))!.buffer.asUint8List();
     final w = doc.width.round(), h = doc.height.round();
-    final m1 = await floodFillMask(data, w, h, 120, 100, 0xFFFF7043);
-    final m2 = await floodFillMask(data, w, h, 300, 200, 0x8042A5F5);
-    final fills = [FillOp(await imageFromRgba(m1, w, h)), FillOp(await imageFromRgba(m2, w, h))];
+    Future<FillOp> fill(int x, int y, int color) async {
+      final r = await floodFillRegion(data, w, h, x, y, color);
+      return FillOp(await imageFromRgba(r.rgba, r.width, r.height), origin: Offset(r.left.toDouble(), r.top.toDouble()));
+    }
+
+    final fills = [await fill(120, 100, 0xFFFF7043), await fill(300, 200, 0x8042A5F5)];
     await matchGolden('fill', await renderLayer(fills));
   });
 

@@ -29,8 +29,14 @@ class StrokeOp extends DrawOp {
 }
 
 class FillOp extends DrawOp {
-  FillOp(this.image);
+  FillOp(this.image, {this.origin = Offset.zero});
+
+  /// The filled pixels, cropped to the filled area.
   final ui.Image image;
+
+  /// Document position of [image]'s top-left pixel (whole pixels, so drawing
+  /// it is pixel-identical to an uncropped full-document image).
+  final Offset origin;
 }
 
 class ClearOp extends DrawOp {}
@@ -226,7 +232,7 @@ void paintOp(Canvas canvas, DrawOp op, Size doc) {
     case StrokeOp s:
       paintStroke(canvas, s);
     case FillOp f:
-      canvas.drawImage(f.image, Offset.zero, Paint());
+      canvas.drawImage(f.image, f.origin, Paint());
     case ClearOp _:
       canvas.drawRect(Offset.zero & doc, Paint()..blendMode = BlendMode.clear);
   }

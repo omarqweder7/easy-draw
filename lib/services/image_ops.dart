@@ -370,71 +370,123 @@ void _boxV(Float32List s, Float32List t, int w, int h, int r) {
 // Flood fill (for the canvas fill tool)
 // ---------------------------------------------------------------------------
 
-/// Scan-line flood fill on [boundary] RGBA pixels starting at (sx, sy).
-/// Returns an RGBA mask filled with [color] where the region matched.
-Future<Uint8List> floodFillMask(Uint8List boundary, int w, int h, int sx, int sy, int color, {int tolerance = 48}) {
-  return Isolate.run(() {
-    final n = w * h;
-    final mask = Uint8List(n);
-    int px(int i) => (boundary[i * 4] << 24) | (boundary[i * 4 + 1] << 16) | (boundary[i * 4 + 2] << 8) | boundary[i * 4 + 3];
-    final seed = sy * w + sx;
-    final target = px(seed);
-    final tr = (target >> 24) & 255, tg = (target >> 16) & 255, tb = (target >> 8) & 255, ta = target & 255;
-    bool same(int i) {
-      final o = i * 4;
-      final a = boundary[o + 3];
-      // Treat transparent and white as equivalent "paper".
-      final dr = (boundary[o] - tr).abs(), dg = (boundary[o + 1] - tg).abs(), db = (boundary[o + 2] - tb).abs(), da = (a - ta).abs();
-      if (ta < 16 && a < 16) return true;
-      return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= tolerance;
-    }
+/// The result of a flood fill: straight RGBA pixels covering only the
+/// bounding box of the filled area, whose top-left pixel sits at
+/// ([left], [top]) in the document.
+class FillRegion {
+  const FillRegion(this.rgba, this.left, this.top, this.width, this.height);
+  final Uint8List rgba;
+  final int left, top, width, height;
+}
 
-    final stack = <int>[seed];
-    while (stack.isNotEmpty) {
-      final i = stack.removeLast();
-      if (mask[i] != 0 || !same(i)) continue;
-      final y = i ~/ w;
-      var x = i % w;
-      var lx = x;
-      while (lx > 0 && mask[y * w + lx - 1] == 0 && same(y * w + lx - 1)) {
-        lx--;
-      }
-      var rx = x;
-      while (rx < w - 1 && mask[y * w + rx + 1] == 0 && same(y * w + rx + 1)) {
-        rx++;
-      }
-      for (x = lx; x <= rx; x++) {
-        mask[y * w + x] = 1;
-        if (y > 0) {
-          final up = (y - 1) * w + x;
-          if (mask[up] == 0) stack.add(up);
-        }
-        if (y < h - 1) {
-          final dn = (y + 1) * w + x;
-          if (mask[dn] == 0) stack.add(dn);
-        }
-      }
-    }
-    // Grow by one pixel so fills tuck under anti-aliased outlines.
-    final grown = Uint8List.fromList(mask);
-    for (var y = 1; y < h - 1; y++) {
-      for (var x = 1; x < w - 1; x++) {
-        final i = y * w + x;
-        if (mask[i] == 0 && (mask[i - 1] | mask[i + 1] | mask[i - w] | mask[i + w]) != 0) grown[i] = 1;
-      }
-    }
-    final r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255, a = (color >> 24) & 255;
-    final out = Uint8List(n * 4);
-    for (var i = 0; i < n; i++) {
-      if (grown[i] != 0) {
-        out[i * 4] = r;
-        out[i * 4 + 1] = g;
-        out[i * 4 + 2] = b;
-        out[i * 4 + 3] = a;
+/// Scan-line flood fill on [boundary] RGBA pixels starting at (sx, sy).
+/// Returns the filled area, painted with [color], cropped to its bounds.
+///
+/// The pixels go in as [TransferableTypedData]; the result comes back through
+/// `Isolate.exit` (no copy) and holds only the cropped region, so small fills
+/// stay cheap.
+Future<FillRegion> floodFillRegion(Uint8List boundary, int w, int h, int sx, int sy, int color, {int tolerance = 48}) async {
+  final input = TransferableTypedData.fromList([boundary]);
+  final (out, left, top, bw, bh) = await Isolate.run(() => _floodFill(input, w, h, sx, sy, color, tolerance));
+  return FillRegion(out, left, top, bw, bh);
+}
+
+(Uint8List, int, int, int, int) _floodFill(TransferableTypedData input, int w, int h, int sx, int sy, int color, int tolerance) {
+  final boundary = input.materialize().asUint8List();
+  final mask = Uint8List(w * h);
+  int px(int i) => (boundary[i * 4] << 24) | (boundary[i * 4 + 1] << 16) | (boundary[i * 4 + 2] << 8) | boundary[i * 4 + 3];
+  final seed = sy * w + sx;
+  final target = px(seed);
+  final tr = (target >> 24) & 255, tg = (target >> 16) & 255, tb = (target >> 8) & 255, ta = target & 255;
+  bool same(int i) {
+    final o = i * 4;
+    final a = boundary[o + 3];
+    // Treat transparent and white as equivalent "paper".
+    final dr = (boundary[o] - tr).abs(), dg = (boundary[o + 1] - tg).abs(), db = (boundary[o + 2] - tb).abs(), da = (a - ta).abs();
+    if (ta < 16 && a < 16) return true;
+    return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= tolerance;
+  }
+
+  // Seeds one pixel per run of fillable pixels in row [r] under [lx, rx];
+  // popping a seed expands it across its whole run. Fills the same
+  // 4-connected region as seeding every pixel, with far fewer stack entries.
+  final stack = <int>[seed];
+  void seedRow(int r, int lx, int rx) {
+    var inRun = false;
+    for (var j = r + lx, end = r + rx; j <= end; j++) {
+      if (mask[j] == 0 && same(j)) {
+        if (!inRun) stack.add(j);
+        inRun = true;
+      } else {
+        inRun = false;
       }
     }
-    return out;
-  });
+  }
+
+  // Bounds of the filled spans.
+  var mx0 = w, my0 = h, mx1 = -1, my1 = -1;
+  while (stack.isNotEmpty) {
+    final i = stack.removeLast();
+    if (mask[i] != 0 || !same(i)) continue;
+    final y = i ~/ w;
+    final row = y * w;
+    var lx = i - row;
+    while (lx > 0 && mask[row + lx - 1] == 0 && same(row + lx - 1)) {
+      lx--;
+    }
+    var rx = i - row;
+    while (rx < w - 1 && mask[row + rx + 1] == 0 && same(row + rx + 1)) {
+      rx++;
+    }
+    if (lx < mx0) mx0 = lx;
+    if (rx > mx1) mx1 = rx;
+    if (y < my0) my0 = y;
+    if (y > my1) my1 = y;
+    mask.fillRange(row + lx, row + rx + 1, 1);
+    if (y > 0) seedRow(row - w, lx, rx);
+    if (y < h - 1) seedRow(row + w, lx, rx);
+  }
+  if (mx1 < 0) {
+    // Nothing matched (cannot happen: the seed always matches itself).
+    return (Uint8List(4), sx, sy, 1, 1);
+  }
+
+  // Filled = the mask grown by one pixel (interior pixels only) so fills
+  // tuck under anti-aliased outlines. Growing reaches at most one pixel
+  // past the mask, so only that window needs scanning.
+  bool filled(int x, int y) {
+    final i = y * w + x;
+    if (mask[i] != 0) return true;
+    if (x < 1 || y < 1 || x > w - 2 || y > h - 2) return false;
+    return (mask[i - 1] | mask[i + 1] | mask[i - w] | mask[i + w]) != 0;
+  }
+
+  final wx0 = max(mx0 - 1, 0), wy0 = max(my0 - 1, 0), wx1 = min(mx1 + 1, w - 1), wy1 = min(my1 + 1, h - 1);
+  var gx0 = wx1, gy0 = wy1, gx1 = wx0, gy1 = wy0;
+  for (var y = wy0; y <= wy1; y++) {
+    for (var x = wx0; x <= wx1; x++) {
+      if (!filled(x, y)) continue;
+      if (x < gx0) gx0 = x;
+      if (x > gx1) gx1 = x;
+      if (y < gy0) gy0 = y;
+      if (y > gy1) gy1 = y;
+    }
+  }
+
+  final bw = gx1 - gx0 + 1, bh = gy1 - gy0 + 1;
+  final r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255, a = (color >> 24) & 255;
+  final out = Uint8List(bw * bh * 4);
+  var o = 0;
+  for (var y = gy0; y <= gy1; y++) {
+    for (var x = gx0; x <= gx1; x++, o += 4) {
+      if (!filled(x, y)) continue;
+      out[o] = r;
+      out[o + 1] = g;
+      out[o + 2] = b;
+      out[o + 3] = a;
+    }
+  }
+  return (out, gx0, gy0, bw, bh);
 }
 
 Future<ui.Image> imageFromRgba(Uint8List rgba, int w, int h) {

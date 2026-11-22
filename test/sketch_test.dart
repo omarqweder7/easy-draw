@@ -55,8 +55,14 @@ void main() {
         boundary[o + 3] = 255;
       }
     }
-    final mask = await floodFillMask(boundary, w, h, 25, 25, 0xFFFF0000);
-    int alphaAt(int x, int y) => mask[(y * w + x) * 4 + 3];
+    final r = await floodFillRegion(boundary, w, h, 25, 25, 0xFFFF0000);
+    // The region is cropped to the fill: inside the outline, grown by 1 px.
+    expect([r.left, r.top, r.width, r.height], [10, 10, 31, 31]);
+    int alphaAt(int x, int y) {
+      final lx = x - r.left, ly = y - r.top;
+      if (lx < 0 || ly < 0 || lx >= r.width || ly >= r.height) return 0;
+      return r.rgba[(ly * r.width + lx) * 4 + 3];
+    }
     expect(alphaAt(25, 25), 255);
     expect(alphaAt(12, 12), 255);
     expect(alphaAt(5, 5), 0, reason: 'fill leaked outside the outline');
