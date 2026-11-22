@@ -32,8 +32,11 @@ package in this Flutter version).
 3. Android: `flutter run`, or `flutter build apk --release`.
    - `compileSdk` is 37 (required by `permission_handler_android`). Install
      Android SDK Platform 37.
-   - The release build is signed with the debug key. Add your own signing
-     config in `android/app/build.gradle.kts` before you publish.
+   - Release builds are signed with the permanent release key from
+     `android/key.properties` (create it once with
+     `tools/create_release_key.ps1`; see [RELEASING.md](RELEASING.md)).
+     Without it they fall back to the debug key, and those builds can't
+     update or be updated by real releases.
 4. iOS (needs macOS with Xcode): `cd ios && pod install && cd .. && flutter run`.
    - The Podfile enables only the camera, microphone and photos permissions
      for `permission_handler`, and `Info.plist` has the usage strings.
@@ -148,7 +151,23 @@ shipping. Camera, trace, recording and export still require device checks.
 
 See `HANDOFF.md` for the validation status of the current working copy.
 
-## Licences
+## Installing and updating (Android)
+
+Download the latest `easy-draw-vX.Y.Z.apk` from the repo's
+[Releases](https://github.com/omarqweder7/easy-draw/releases) page and open
+it on the phone. You may need to allow installing from your browser or file
+manager.
+
+To update, install the newer APK the same way. It installs over the old
+version and keeps your drawings. The app itself never goes online, so it
+won't tell you about new versions. Check the Releases page, or press
+**Watch → Custom → Releases** on GitHub to get notified.
+
+Maintainers: see [RELEASING.md](RELEASING.md).
+
+## License
+
+Easy Draw is released under the [MIT License](LICENSE).
 
 Fonts are under the SIL Open Font License 1.1 (see `assets/fonts/OFL-*.txt`).
 All library and lesson artwork is original to this project.
