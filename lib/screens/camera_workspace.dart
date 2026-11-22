@@ -69,7 +69,8 @@ class _CameraWorkspaceState extends State<CameraWorkspace>
   bool _recording = false;
   bool _recordInfoShown = false;
   bool _audioThisSession = false;
-  Duration _recElapsed = Duration.zero;
+  // Ticks every second while recording; only the REC label listens.
+  final _recElapsed = ValueNotifier<Duration>(Duration.zero);
   Timer? _recTimer;
   final _viewportKey = GlobalKey();
   DeviceOrientation _orientation = DeviceOrientation.portraitUp;
@@ -93,6 +94,7 @@ class _CameraWorkspaceState extends State<CameraWorkspace>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _recTimer?.cancel();
+    _recElapsed.dispose();
     _releaseCamera();
     WakelockPlus.disable(); // restore normal screen timeout
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -502,9 +504,9 @@ class _CameraWorkspaceState extends State<CameraWorkspace>
     try {
       await cam.prepareForVideoRecording();
       await cam.startVideoRecording();
-      _recElapsed = Duration.zero;
+      _recElapsed.value = Duration.zero;
       _recTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() => _recElapsed += const Duration(seconds: 1));
+        if (mounted) _recElapsed.value += const Duration(seconds: 1);
       });
       setState(() => _recording = true);
     } catch (e) {
@@ -942,9 +944,12 @@ class _CameraWorkspaceState extends State<CameraWorkspace>
                             color: Colors.white,
                           ),
                           const SizedBox(width: Space.xxs),
-                          Text(
-                            'REC ${_fmt(_recElapsed)}',
-                            style: t.numeric.copyWith(color: Colors.white),
+                          ValueListenableBuilder<Duration>(
+                            valueListenable: _recElapsed,
+                            builder: (context, elapsed, _) => Text(
+                              'REC ${_fmt(elapsed)}',
+                              style: t.numeric.copyWith(color: Colors.white),
+                            ),
                           ),
                         ],
                       ),
