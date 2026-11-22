@@ -72,7 +72,12 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   double _d0 = 1;
   Offset _f0 = Offset.zero;
 
-  _SaveState _save = _SaveState.idle;
+  // Save status and undo/redo availability change after every stroke; only
+  // the app bar label and the undo/redo buttons listen, not the whole screen.
+  final _saveState = ValueNotifier<_SaveState>(_SaveState.idle);
+  _SaveState get _save => _saveState.value;
+  set _save(_SaveState s) => _saveState.value = s;
+  final _history = ValueNotifier<int>(0); // bumped when undo/redo may have changed
   Timer? _saveTimer;
   bool _saveAgain = false;
 
@@ -111,6 +116,8 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       l.disposeAll();
     }
     _repaint.dispose();
+    _saveState.dispose();
+    _history.dispose();
     super.dispose();
   }
 
@@ -213,7 +220,8 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   void _changed(CanvasLayer? layer) {
     layer?.dirty = true;
     _compositeStale = true;
-    setState(() => _save = _SaveState.pending);
+    _save = _SaveState.pending;
+    _history.value++;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 1500), _doSave);
   }
@@ -225,7 +233,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       _saveAgain = true;
       return true;
     }
-    if (mounted) setState(() => _save = _SaveState.saving);
+    if (mounted) _save = _SaveState.saving;
     var writeComposite = false;
     try {
       _project ??= await _art.createProject(title: _title, meta: {'coloring': _coloring});
@@ -280,7 +288,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       final thumbPng = await encodePng(thumb);
       thumb.dispose();
       await _art.touchProject(_project!, thumbPng: thumbPng);
-      if (mounted) setState(() => _save = _SaveState.saved);
+      if (mounted) _save = _SaveState.saved;
       if (_saveAgain) {
         _saveAgain = false;
         return await _doSave();
@@ -289,7 +297,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
     } catch (e) {
       if (writeComposite) _compositeStale = true;
       if (mounted) {
-        setState(() => _save = _SaveState.failed);
+        _save = _SaveState.failed;
         showSnack(storageMessage(context, e), error: true, actionLabel: context.tr('common.retry', 'Retry'), onAction: _doSave);
       }
       return false;
@@ -605,12 +613,16 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
         backgroundColor: p.isDark ? const Color(0xFF0B0F11) : const Color(0xFFE2E7E2),
         appBar: EDTopBar(
           title: _title,
-          subtitle: _saveLabel(),
+          subtitle: ValueListenableBuilder<_SaveState>(valueListenable: _saveState, builder: (context, _, _) => _saveLabel()),
           onBack: _exit,
-          onTitleTap: _save == _SaveState.failed ? _doSave : _rename,
+          onTitleTap: () => _save == _SaveState.failed ? _doSave() : _rename(),
           actions: [
-            EDIconButton(icon: Icons.undo_rounded, tooltip: context.tr('canvas.undo', 'Undo'), onPressed: _undo.isEmpty ? null : _undoOp),
-            EDIconButton(icon: Icons.redo_rounded, tooltip: context.tr('canvas.redo', 'Redo'), onPressed: _redo.isEmpty ? null : _redoOp),
+            ValueListenableBuilder<int>(
+                valueListenable: _history,
+                builder: (context, _, _) => EDIconButton(icon: Icons.undo_rounded, tooltip: context.tr('canvas.undo', 'Undo'), onPressed: _undo.isEmpty ? null : _undoOp)),
+            ValueListenableBuilder<int>(
+                valueListenable: _history,
+                builder: (context, _, _) => EDIconButton(icon: Icons.redo_rounded, tooltip: context.tr('canvas.redo', 'Redo'), onPressed: _redo.isEmpty ? null : _redoOp)),
             EDIconButton(icon: Icons.more_vert_rounded, tooltip: context.tr('art.more', 'More options'), onPressed: _loading ? null : _showMore),
           ],
         ),
