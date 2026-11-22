@@ -43,6 +43,7 @@ those goldens were never regenerated during this pass.
 |   |   |   | frame build time p99 | 0.92–0.96 ms | 0.41–0.50 ms |
 | 8 | `e1f0674` | ArtStore caches the sorted list and file existence | `items` getter, per access (64 items) | 14.9 µs | ~0 µs |
 |   |   |   | picker/Home work per build | 184 µs | 100 µs |
+| — | `08293ff` | Bug fix: a stroke made during an autosave could be lost (see "Save race" below) | strokes still missing after the next save, 42 trials | 36 | 0 |
 
 Medians of the same-session runs. The commit messages have the ranges and
 phase breakdowns.
@@ -77,24 +78,34 @@ Notes:
   show whether a lower preset helps or hurts real captures. Decide this on
   a real phone.
 
-## Found but not changed (needs a decision)
+## Save race (fixed in `08293ff`)
 
-**Pre-existing autosave race.** This was already there before the pass,
-and it is in the saving code.
-1. If a stroke lands while an autosave is running, that save still ends
-   by setting the status to "Saved", which overwrites "Pending". The
-   1.5 s timer saves the stroke later. Leaving within that window used to
-   skip the save. After Fix 4, exit saves whenever anything changed since
-   the last composite, so this case is now covered on exit.
-2. If the stroke lands on the very layer whose PNG is being encoded
-   (~80 ms), the save clears that layer's `dirty` flag after writing the
-   older image. The new stroke is then not written until that layer
-   changes again. If the app is killed before that, the stroke is lost on
-   disk. The window is small but real.
+This race was older than the performance pass and was found during it.
+1. After writing a layer PNG, the save cleared the layer's `dirty` flag,
+   even if a stroke had landed on that layer while it was encoding. Later
+   saves skipped the layer, so the stroke reached disk only when that layer
+   changed again. If the app was killed first, the stroke was lost.
+2. The save ended with "Saved" even when changes arrived during it. A
+   stroke also flips the status to "pending", so a second save could start
+   while the first was still writing the same `.tmp` files.
 
-A possible fix: give each layer a change counter, clear `dirty` only if the
-counter didn't move during the encode, and only report "Saved" when no
-change arrived during the save.
+Now each layer has a change counter, and a save clears `dirty` only if
+the counter didn't move during the encode. "Saved" shows only when nothing
+changed during the save. A separate `_saving` flag stops saves from
+overlapping, and exit waits on it.
+
+Harness repro: start an autosave and commit a stroke on the same layer
+0–160 ms later, with no further autosave. Then run one more save, as the
+next autosave or exit would. Across 42 trials:
+
+| | Before | After |
+|---|---:|---:|
+| stroke still missing on disk after the next save | 36 | 0 |
+| status "Saved" while the disk was behind | 41 | 0 |
+
+Save time is unchanged: 165 → 164 ms with 1 dirty layer, 1045 → 1066 ms
+with 8. Checked on the emulator: strokes drawn during the first autosave
+are all in the layer PNG and the composite.
 
 ## Bigger ideas for later
 
