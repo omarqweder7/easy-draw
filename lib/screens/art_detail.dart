@@ -211,6 +211,9 @@ class _ArtDetailScreenState extends State<ArtDetailScreen> {
             File(_imagePath!),
             key: ValueKey(_previewVersion),
             fit: BoxFit.contain,
+            // Captures can be 4096 px (~50 MB decoded). Twice the screen
+            // width keeps pinch-zoom sharp; smaller images aren't upscaled.
+            cacheWidth: (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context) * 2).round(),
             errorBuilder: (_, _, _) => const MissingFile(),
           ),
         ),

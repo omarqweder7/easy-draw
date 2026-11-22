@@ -154,7 +154,9 @@ class _SketchScreenState extends State<SketchScreen> {
 
   Widget _previewArea() {
     final p = context.ds;
-    final original = Image.file(File(widget.sourcePath), fit: BoxFit.contain, semanticLabel: context.tr('sketch.original', 'Original'));
+    // The original is never shown wider than the screen; decode it at that size.
+    final screenPx = (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round();
+    final original = Image.file(File(widget.sourcePath), fit: BoxFit.contain, cacheWidth: screenPx, semanticLabel: context.tr('sketch.original', 'Original'));
     final sketch = _preview == null ? const EDLoading() : RawImage(image: _preview, fit: BoxFit.contain);
     Widget content;
     switch (_view) {
