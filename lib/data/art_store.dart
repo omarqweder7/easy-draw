@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -72,6 +73,50 @@ Future<Uint8List?> makeThumbnail(Uint8List bytes, {int maxSide = 480}) async {
   }
 }
 
+/// Rebuilds a project's `composite.png` contents from `project.json` and the
+/// layer PNGs, the way the canvas composites for export: white paper, then
+/// every visible, exportable layer at its opacity.
+Future<Uint8List> compositeProjectPng(Directory dir) async {
+  final j = jsonDecode(await File(p.join(dir.path, 'project.json')).readAsString()) as Map<String, dynamic>;
+  final w = (j['w'] as num).toDouble(), h = (j['h'] as num).toDouble();
+  final rec = ui.PictureRecorder();
+  final c = ui.Canvas(rec);
+  c.drawRect(ui.Rect.fromLTWH(0, 0, w, h), ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+  final layers = <ui.Image>[];
+  try {
+    for (final lj in (j['layers'] as List).cast<Map<String, dynamic>>()) {
+      if (lj['visible'] != true || lj['exportable'] == false) continue;
+      final f = File(p.join(dir.path, lj['file'] as String));
+      if (!await f.exists()) continue;
+      final codec = await ui.instantiateImageCodec(await f.readAsBytes());
+      final img = (await codec.getNextFrame()).image;
+      codec.dispose();
+      layers.add(img);
+      c.drawImage(
+        img,
+        ui.Offset.zero,
+        ui.Paint()
+          ..color = ui.Color.fromRGBO(0, 0, 0, (lj['opacity'] as num).toDouble())
+          ..filterQuality = ui.FilterQuality.medium,
+      );
+    }
+    final pic = rec.endRecording();
+    final out = await pic.toImage(w.round(), h.round());
+    pic.dispose();
+    try {
+      final data = await out.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw StateError('PNG encoding failed');
+      return data.buffer.asUint8List();
+    } finally {
+      out.dispose();
+    }
+  } finally {
+    for (final i in layers) {
+      i.dispose();
+    }
+  }
+}
+
 /// The "My Art" store: an index file plus media files in the app's private
 /// documents folder. Nothing leaves the device unless the user shares it.
 class ArtStore extends ChangeNotifier {
@@ -98,6 +143,12 @@ class ArtStore extends ChangeNotifier {
       await Directory(p.join(storeRoot.path, d)).create(recursive: true);
     }
     await _loadIndex();
+    // Rebuild previews left stale by a crash (autosave skips composite.png).
+    for (final i in _items) {
+      if (i.type == ArtType.project && await _compositeFresh(i) == false) {
+        unawaited(ensureComposite(i));
+      }
+    }
   }
 
   Future<void> _loadIndex() async {
@@ -144,6 +195,46 @@ class ArtStore extends ChangeNotifier {
       if (i.id == id) return i;
     }
     return null;
+  }
+
+  final Map<String, Future<bool>> _compositeJobs = {};
+
+  /// Whether a project's `composite.png` is at least as new as its
+  /// `project.json`; null when there is no `project.json`.
+  Future<bool?> _compositeFresh(ArtItem item) async {
+    final dir = projectDir(item);
+    final json = File(p.join(dir.path, 'project.json'));
+    final comp = File(p.join(dir.path, 'composite.png'));
+    if (!await json.exists()) return null;
+    if (!await comp.exists()) return false;
+    return !(await comp.lastModified()).isBefore(await json.lastModified());
+  }
+
+  /// Makes sure a project's `composite.png` (My Art preview, "use as
+  /// reference") matches its layers, rebuilding it from the layer PNGs if it
+  /// is missing or older than `project.json`. Completes with true if it was
+  /// rebuilt.
+  Future<bool> ensureComposite(ArtItem item) {
+    if (item.type != ArtType.project) return Future.value(false);
+    // Block body: whenComplete would otherwise wait on the removed future,
+    // which is this job itself.
+    return _compositeJobs[item.id] ??= _ensureComposite(item).whenComplete(() {
+      _compositeJobs.remove(item.id);
+    });
+  }
+
+  Future<bool> _ensureComposite(ArtItem item) async {
+    try {
+      if (await _compositeFresh(item) != false) return false;
+      final dir = projectDir(item);
+      final comp = File(p.join(dir.path, 'composite.png'));
+      await writeAtomic(comp, await compositeProjectPng(dir));
+      PaintingBindingHelper.evict(comp);
+      return true;
+    } catch (e) {
+      debugPrint('Composite rebuild failed: $e');
+      return false;
+    }
   }
 
   /// Resolves an `art:<id>` reference to a [RefSource] if the file still exists.

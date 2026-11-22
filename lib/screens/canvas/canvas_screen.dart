@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
@@ -74,6 +75,14 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   _SaveState _save = _SaveState.idle;
   Timer? _saveTimer;
   bool _saveAgain = false;
+
+  /// `composite.png` (My Art preview, "use as reference") is only rewritten
+  /// on exit, export, app pause, or every [_compositeMaxAge] while drawing;
+  /// plain autosaves skip it. ArtStore rebuilds it if it is ever stale.
+  bool _compositeStale = false; // drawing changed since composite.png was written
+  bool _compositeWanted = false; // the next save must write composite.png
+  DateTime? _compositeWritten; // null: never written in this session
+  static const _compositeMaxAge = Duration(seconds: 30);
   bool _busy = false;
   String _busyText = '';
   int _layerSeq = 1;
@@ -108,7 +117,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
     if (s == AppLifecycleState.paused || s == AppLifecycleState.inactive) {
-      if (_save == _SaveState.pending) _doSave();
+      if (_save == _SaveState.pending || _compositeStale) _doSave(withComposite: true);
     }
   }
 
@@ -173,6 +182,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
     _project = item;
     _title = item.title;
     _save = _SaveState.saved;
+    _compositeWritten = DateTime.now(); // what is on disk matches what we load
     final dir = _art.projectDir(item);
     final f = File(p.join(dir.path, 'project.json'));
     final j = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
@@ -202,18 +212,21 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
 
   void _changed(CanvasLayer? layer) {
     layer?.dirty = true;
+    _compositeStale = true;
     setState(() => _save = _SaveState.pending);
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 1500), _doSave);
   }
 
-  Future<bool> _doSave() async {
+  Future<bool> _doSave({bool withComposite = false}) async {
     _saveTimer?.cancel();
+    if (withComposite) _compositeWanted = true;
     if (_save == _SaveState.saving) {
       _saveAgain = true;
       return true;
     }
     if (mounted) setState(() => _save = _SaveState.saving);
+    var writeComposite = false;
     try {
       _project ??= await _art.createProject(title: _title, meta: {'coloring': _coloring});
       final dir = _art.projectDir(_project!);
@@ -251,13 +264,21 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
         ],
       };
       await writeAtomic(File(p.join(dir.path, 'project.json')), utf8.encode(jsonEncode(meta)));
-      final comp = await composite(_layers, _doc);
-      await writeAtomic(File(p.join(dir.path, 'composite.png')), await encodePng(comp));
-      comp.dispose();
+      final written = _compositeWritten;
+      writeComposite = _compositeStale && (_compositeWanted || written == null || DateTime.now().difference(written) > _compositeMaxAge);
+      if (writeComposite) {
+        // Cleared before compositing: a change made meanwhile marks it stale again.
+        _compositeStale = false;
+        _compositeWanted = false;
+        final comp = await composite(_layers, _doc);
+        await writeAtomic(File(p.join(dir.path, 'composite.png')), await encodePng(comp));
+        comp.dispose();
+        _compositeWritten = DateTime.now();
+        PaintingBindingHelper.evict(File(p.join(dir.path, 'composite.png')));
+      }
       final thumb = await composite(_layers, _doc, scale: 480 / max(_doc.width, _doc.height));
       final thumbPng = await encodePng(thumb);
       thumb.dispose();
-      PaintingBindingHelper.evict(File(p.join(dir.path, 'composite.png')));
       await _art.touchProject(_project!, thumbPng: thumbPng);
       if (mounted) setState(() => _save = _SaveState.saved);
       if (_saveAgain) {
@@ -266,11 +287,31 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       }
       return true;
     } catch (e) {
+      if (writeComposite) _compositeStale = true;
       if (mounted) {
         setState(() => _save = _SaveState.failed);
         showSnack(storageMessage(context, e), error: true, actionLabel: context.tr('common.retry', 'Retry'), onAction: _doSave);
       }
       return false;
+    }
+  }
+
+  /// Export has just encoded the composite: keep composite.png in step with it.
+  Future<void> _exportedComposite(Uint8List png) async {
+    if (!_compositeStale || _project == null) return;
+    if (_save != _SaveState.saved) {
+      // Layers aren't on disk yet; the pending save writes the composite after them.
+      _compositeWanted = true;
+      return;
+    }
+    try {
+      final f = File(p.join(_art.projectDir(_project!).path, 'composite.png'));
+      _compositeStale = false;
+      await writeAtomic(f, png);
+      _compositeWritten = DateTime.now();
+      PaintingBindingHelper.evict(f);
+    } catch (_) {
+      _compositeStale = true; // derived data; the next exit/pause retries
     }
   }
 
@@ -280,7 +321,13 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
         _busy = true;
         _busyText = context.tr('canvas.saving', 'Saving…');
       });
-      final ok = await _doSave();
+      // Let a save already in progress finish first; a save queued behind it
+      // would otherwise run after this screen has released its layers.
+      while (_save == _SaveState.saving) {
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+      }
+      if (!mounted) return;
+      final ok = await _doSave(withComposite: true);
       if (!mounted) return;
       setState(() => _busy = false);
       if (!ok) {
@@ -293,6 +340,9 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
         );
         if (!leave || !mounted) return;
       }
+    } else if (_compositeStale) {
+      // Everything else is saved; only the My Art preview is behind.
+      await _doSave(withComposite: true);
     }
     if (mounted) Navigator.pop(context);
   }
@@ -1036,6 +1086,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       final png = await encodePng(img);
       final bytes = choice == 'jpg' ? await imageToJpeg(img) : png;
       img.dispose();
+      await _exportedComposite(png);
       if (choice == 'copy') {
         await _art.addImage(png, type: ArtType.export, title: _title);
         if (mounted) showSnack(context.tr('cap.saved', 'Saved to My Art'));

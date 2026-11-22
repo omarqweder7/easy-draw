@@ -26,14 +26,19 @@ class ArtDetailScreen extends StatefulWidget {
 class _ArtDetailScreenState extends State<ArtDetailScreen> {
   bool _busy = false;
   bool? _exists;
+  int _previewVersion = 0; // bumped when a stale project preview is rebuilt
 
   ArtItem get item => widget.item;
 
   @override
   void initState() {
     super.initState();
-    context.art.exists(item).then((v) {
+    final art = context.art;
+    art.exists(item).then((v) {
       if (mounted) setState(() => _exists = v);
+    });
+    art.ensureComposite(item).then((rebuilt) {
+      if (rebuilt && mounted) setState(() => _previewVersion++);
     });
   }
 
@@ -63,13 +68,16 @@ class _ArtDetailScreenState extends State<ArtDetailScreen> {
       await shareFile(context.art.fileOf(item).path, subject: item.title);
     } else {
       final path = _imagePath!;
+      await context.art.ensureComposite(item);
       if (!await File(path).exists()) throw StateError('missing');
       await shareFile(path, subject: item.title);
     }
   });
 
   Future<void> _export(ExportFormat f) => _run(() async {
-    final out = await exportImageFile(_imagePath!, f, item.title);
+    final path = _imagePath!;
+    await context.art.ensureComposite(item);
+    final out = await exportImageFile(path, f, item.title);
     if (!mounted) return;
     final r = await saveToGallery(out);
     if (!mounted) return;
@@ -201,6 +209,7 @@ class _ArtDetailScreenState extends State<ArtDetailScreen> {
           color: Colors.white,
           child: Image.file(
             File(_imagePath!),
+            key: ValueKey(_previewVersion),
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) => const MissingFile(),
           ),
