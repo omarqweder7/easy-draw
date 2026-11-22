@@ -62,6 +62,10 @@ class CanvasLayer {
   ui.Image? cache;
   bool dirty = false; // needs saving
 
+  /// Bumped on every content change, so a save can tell whether the layer
+  /// changed while it was being encoded (and must stay [dirty]).
+  int version = 0;
+
   bool get editable => kind == LayerKind.paint;
 }
 

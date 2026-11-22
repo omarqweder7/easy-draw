@@ -80,6 +80,8 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   final _history = ValueNotifier<int>(0); // bumped when undo/redo may have changed
   Timer? _saveTimer;
   bool _saveAgain = false;
+  bool _saving = false; // a _doSave is running (the status may already say pending)
+  int _changeSeq = 0; // bumped by every change; tells a save whether it is still current
 
   /// `composite.png` (My Art preview, "use as reference") is only rewritten
   /// on exit, export, app pause, or every [_compositeMaxAge] while drawing;
@@ -218,7 +220,11 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   // ---------------------------------------------------------------- saving
 
   void _changed(CanvasLayer? layer) {
-    layer?.dirty = true;
+    if (layer != null) {
+      layer.dirty = true;
+      layer.version++;
+    }
+    _changeSeq++;
     _compositeStale = true;
     _save = _SaveState.pending;
     _history.value++;
@@ -229,12 +235,15 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
   Future<bool> _doSave({bool withComposite = false}) async {
     _saveTimer?.cancel();
     if (withComposite) _compositeWanted = true;
-    if (_save == _SaveState.saving) {
+    if (_saving) {
       _saveAgain = true;
       return true;
     }
+    _saving = true;
+    final seq = _changeSeq;
     if (mounted) _save = _SaveState.saving;
     var writeComposite = false;
+    var ok = false;
     try {
       _project ??= await _art.createProject(title: _title, meta: {'coloring': _coloring});
       final dir = _art.projectDir(_project!);
@@ -242,6 +251,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       for (final l in _layers) {
         final file = File(p.join(dir.path, 'layer_${l.id}.png'));
         if (!l.dirty && await file.exists()) continue;
+        final version = l.version;
         final img = l.cache ?? l.base;
         if (img == null) {
           // Empty layer: write a transparent PNG of the document size.
@@ -259,7 +269,9 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
             own.dispose();
           }
         }
-        l.dirty = false;
+        // A stroke committed while this layer was encoded isn't in the file:
+        // the layer stays dirty so the next save writes it.
+        if (l.version == version) l.dirty = false;
       }
       final meta = {
         'version': 1,
@@ -288,20 +300,24 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       final thumbPng = await encodePng(thumb);
       thumb.dispose();
       await _art.touchProject(_project!, thumbPng: thumbPng);
-      if (mounted) _save = _SaveState.saved;
-      if (_saveAgain) {
-        _saveAgain = false;
-        return await _doSave();
-      }
-      return true;
+      // Changes made during this save aren't all on disk; their autosave is
+      // already scheduled, so the status stays pending until it runs.
+      if (mounted) _save = _changeSeq == seq ? _SaveState.saved : _SaveState.pending;
+      ok = true;
     } catch (e) {
       if (writeComposite) _compositeStale = true;
       if (mounted) {
         _save = _SaveState.failed;
         showSnack(storageMessage(context, e), error: true, actionLabel: context.tr('common.retry', 'Retry'), onAction: _doSave);
       }
-      return false;
+    } finally {
+      _saving = false;
     }
+    if (ok && _saveAgain) {
+      _saveAgain = false;
+      return _doSave();
+    }
+    return ok;
   }
 
   /// Export has just encoded the composite: keep composite.png in step with it.
@@ -331,7 +347,7 @@ class _CanvasScreenState extends State<CanvasScreen> with WidgetsBindingObserver
       });
       // Let a save already in progress finish first; a save queued behind it
       // would otherwise run after this screen has released its layers.
-      while (_save == _SaveState.saving) {
+      while (_saving) {
         await Future<void>.delayed(const Duration(milliseconds: 16));
       }
       if (!mounted) return;
