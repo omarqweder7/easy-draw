@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:material_ui/material_ui.dart';
 
 import '../app/l10n.dart';
@@ -109,7 +107,7 @@ class _MyArtPicker extends StatelessWidget {
     final sources = <(ArtItem, RefSource)>[];
     for (final i in art.items.where((i) => i.isImage || i.type == ArtType.project)) {
       final s = art.sourceFor('art:${i.id}');
-      if (s != null && File(s.path).existsSync()) sources.add((i, s));
+      if (s != null) sources.add((i, s)); // null when the file is missing
     }
     if (sources.isEmpty) {
       return EDStateView(

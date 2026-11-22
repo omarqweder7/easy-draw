@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_svg/flutter_svg.dart';
@@ -135,7 +134,7 @@ class HomeScreen extends StatelessWidget {
         if (r != null) out.add(r.toSource());
       } else {
         final s = context.art.sourceFor(id);
-        if (s != null && File(s.path).existsSync()) out.add(s);
+        if (s != null) out.add(s); // null when the file is missing
       }
     }
     return out;

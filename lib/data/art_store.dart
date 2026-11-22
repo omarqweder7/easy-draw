@@ -124,9 +124,27 @@ class ArtStore extends ChangeNotifier {
   final List<ArtItem> _items = [];
   bool loadError = false;
 
-  List<ArtItem> get items {
-    final list = [..._items]..sort((a, b) => b.modified.compareTo(a.modified));
-    return list;
+  /// Newest first. Cached; rebuilt after the index changes ([_saveIndex]).
+  List<ArtItem> get items => _sorted ??= List.unmodifiable([..._items]..sort((a, b) => b.modified.compareTo(a.modified)));
+  List<ArtItem>? _sorted;
+
+  /// Items whose file (composite.png for projects) is missing on disk.
+  /// Checked asynchronously at [init] and kept up to date as items are
+  /// added, saved or deleted, so widgets never touch the disk in build().
+  final Set<String> _missing = {};
+
+  File _mainFile(ArtItem item) =>
+      item.type == ArtType.project ? File(p.join(projectDir(item).path, 'composite.png')) : fileOf(item);
+
+  Future<void> _checkExists(ArtItem item) async {
+    bool ok;
+    try {
+      ok = await _mainFile(item).exists();
+    } catch (_) {
+      ok = false;
+    }
+    final changed = ok ? _missing.remove(item.id) : _missing.add(item.id);
+    if (changed) notifyListeners();
   }
 
   File get _index => File(p.join(root.path, 'items.json'));
@@ -143,6 +161,14 @@ class ArtStore extends ChangeNotifier {
       await Directory(p.join(storeRoot.path, d)).create(recursive: true);
     }
     await _loadIndex();
+    _missing.clear();
+    for (final i in _items) {
+      try {
+        if (!await _mainFile(i).exists()) _missing.add(i.id);
+      } catch (_) {
+        _missing.add(i.id);
+      }
+    }
     // Rebuild previews left stale by a crash (autosave skips composite.png).
     for (final i in _items) {
       if (i.type == ArtType.project && await _compositeFresh(i) == false) {
@@ -153,6 +179,7 @@ class ArtStore extends ChangeNotifier {
 
   Future<void> _loadIndex() async {
     _items.clear();
+    _sorted = null;
     for (final f in [_index, File('${_index.path}.bak')]) {
       if (!await f.exists()) continue;
       try {
@@ -168,6 +195,7 @@ class ArtStore extends ChangeNotifier {
   }
 
   Future<void> _saveIndex() async {
+    _sorted = null;
     final data = utf8.encode(
       const JsonEncoder.withIndent(' ')
           .convert(_items.map((e) => e.toJson()).toList()),
@@ -230,6 +258,7 @@ class ArtStore extends ChangeNotifier {
       final comp = File(p.join(dir.path, 'composite.png'));
       await writeAtomic(comp, await compositeProjectPng(dir));
       PaintingBindingHelper.evict(comp);
+      if (_missing.remove(item.id)) notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Composite rebuild failed: $e');
@@ -237,11 +266,12 @@ class ArtStore extends ChangeNotifier {
     }
   }
 
-  /// Resolves an `art:<id>` reference to a [RefSource] if the file still exists.
+  /// Resolves an `art:<id>` reference to a [RefSource] if the file still
+  /// exists (as last checked; no disk access here).
   RefSource? sourceFor(String refId) {
     if (!refId.startsWith('art:')) return null;
     final item = byId(refId.substring(4));
-    if (item == null) return null;
+    if (item == null || _missing.contains(item.id)) return null;
     if (item.type == ArtType.project) {
       final f = File(p.join(projectDir(item).path, 'composite.png'));
       return RefSource.file(f.path, title: item.title, refId: refId);
@@ -338,6 +368,7 @@ class ArtStore extends ChangeNotifier {
       file: rel,
       meta: {...meta},
     );
+    _missing.add(id); // no composite.png until the canvas first saves
     _items.add(item);
     await _saveIndex();
     return item;
@@ -353,6 +384,7 @@ class ArtStore extends ChangeNotifier {
       // Evict the cached thumbnail so lists show the new one.
       PaintingBindingHelper.evict(File(p.join(root.path, rel)));
     }
+    await _checkExists(item);
     await _saveIndex();
   }
 
@@ -406,6 +438,7 @@ class ArtStore extends ChangeNotifier {
       thumb: newThumb,
       meta: {...item.meta},
     );
+    if (_missing.contains(item.id)) _missing.add(id);
     _items.add(copy);
     await _saveIndex();
     return copy;
@@ -426,6 +459,7 @@ class ArtStore extends ChangeNotifier {
       // Removing the index entry still matters even if a file is gone.
     }
     _items.removeWhere((i) => i.id == item.id);
+    _missing.remove(item.id);
     await _saveIndex();
   }
 
